@@ -2,11 +2,15 @@ using System.Collections;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using System.Runtime.InteropServices;
 
 namespace Complete
 {
     public class GameManager : MonoBehaviour
     {
+        [DllImport("__Internal")]
+        private static extern void sendResultToJs(string result);
+
         public int m_NumRoundsToWin = 5;            // The number of rounds a single player has to win to win the game.
         public float m_StartDelay = 3f;             // The delay between the start of RoundStarting and RoundPlaying phases.
         public float m_EndDelay = 3f;               // The delay between the end of RoundPlaying and RoundEnding phases.
@@ -25,6 +29,15 @@ namespace Complete
         private bool gameReady = false;
         private bool gameStarted = false;
         private string[] playerNames;
+
+        [System.Serializable]
+        public class ResultInfo
+        {
+            public string winner;
+            public int winnerScore;
+            public string loser;
+            public int loserScore;
+        }
 
         private void Start()
         {
@@ -107,6 +120,8 @@ namespace Complete
             // This code is not run until 'RoundEnding' has finished.  At which point, check if a game winner has been found.
             if (m_GameWinner != null)
             {
+                // 브라우저로 정보 보내기
+                sendResult();
                 // If there is a game winner, restart the level.
                 SceneManager.LoadScene (0);
             }
@@ -304,6 +319,31 @@ namespace Complete
             p1.GetComponentInChildren<Text>().text = playerNames[0];
             GameObject p2 = GameObject.Find("P2");
             p2.GetComponentInChildren<Text>().text = playerNames[1];
+        }
+
+        void sendResult()
+        {
+            TankManager loser = null;
+
+            foreach (var tank in m_Tanks)
+            {
+                if (tank != m_GameWinner)
+                {
+                    loser = tank;
+                    break;
+                }
+            }
+
+            ResultInfo result = new ResultInfo
+            {
+                winner = m_GameWinner.m_PlayerName,
+                winnerScore = 5,
+                loser = loser != null ? loser.m_PlayerName : "Unknown",
+                loserScore = loser != null ? loser.m_Wins : 0
+            };
+
+            string json = JsonUtility.ToJson(result);
+            sendResultToJs(json);
         }
     }
 }
